@@ -338,6 +338,14 @@ def prepare_subprocess_env(system, env=None):
                 env.pop(lp_key)
     # security: do not give secrets to subprocess
     env.pop("BORG_PASSPHRASE", None)
+    if not system:
+        # Do not propagate coverage tracing into borg subprocesses (e.g. "borg serve").
+        # The server-side RepositoryServer is already marked "# pragma: no cover", and
+        # all other paths it exercises are covered by local in-process tests.
+        # Inheriting COVERAGE_PROCESS_CONFIG adds ~400-800ms overhead per subprocess
+        # with no coverage gain (see borgbackup/borg#9470).
+        env.pop("COVERAGE_PROCESS_CONFIG", None)
+        env.pop("COVERAGE_PROCESS_START", None)
     # for information, give borg version to the subprocess
     env["BORG_VERSION"] = __version__
     return env

@@ -1,7 +1,7 @@
 import shutil
 import pytest
 
-from ...helpers.process import popen_with_error_handling
+from ...helpers.process import popen_with_error_handling, prepare_subprocess_env
 
 
 class TestPopenWithErrorHandling:
@@ -25,3 +25,32 @@ class TestPopenWithErrorHandling:
     def test_shell(self):
         with pytest.raises(AssertionError):
             popen_with_error_handling("", shell=True)
+
+
+class TestPrepareSubprocessEnv:
+    def test_system_preserves_coverage_env(self, monkeypatch):
+        monkeypatch.setenv("COVERAGE_PROCESS_CONFIG", "cfg")
+        monkeypatch.setenv("COVERAGE_PROCESS_START", "start")
+        result = prepare_subprocess_env(system=True)
+        assert result.get("COVERAGE_PROCESS_CONFIG") == "cfg"
+        assert result.get("COVERAGE_PROCESS_START") == "start"
+
+    def test_non_system_strips_coverage_env(self, monkeypatch):
+        monkeypatch.setenv("COVERAGE_PROCESS_CONFIG", "cfg")
+        monkeypatch.setenv("COVERAGE_PROCESS_START", "start")
+        result = prepare_subprocess_env(system=False)
+        assert "COVERAGE_PROCESS_CONFIG" not in result
+        assert "COVERAGE_PROCESS_START" not in result
+
+    def test_non_system_strips_coverage_env_when_absent(self, monkeypatch):
+        monkeypatch.delenv("COVERAGE_PROCESS_CONFIG", raising=False)
+        monkeypatch.delenv("COVERAGE_PROCESS_START", raising=False)
+        result = prepare_subprocess_env(system=False)  # must not raise
+        assert "COVERAGE_PROCESS_CONFIG" not in result
+        assert "COVERAGE_PROCESS_START" not in result
+
+    def test_passphrase_stripped_regardless_of_system(self, monkeypatch):
+        monkeypatch.setenv("BORG_PASSPHRASE", "secret")
+        for system in (True, False):
+            result = prepare_subprocess_env(system=system)
+            assert "BORG_PASSPHRASE" not in result
